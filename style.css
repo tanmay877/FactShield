@@ -1,0 +1,116 @@
+body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #0f172a, #020617);
+    color: #e5e7eb;
+}
+
+.app {
+    width: 900px;
+    margin: 30px auto;
+}
+
+.header {
+    border: 1px solid #1e293b;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(59,130,246,0.15);
+}
+
+.tagline {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.card {
+    background: #020617;
+    border: 1px solid #1e293b;
+    margin-top: 25px;
+    padding: 22px;
+    border-radius: 12px;
+}
+
+textarea {
+    width: 100%;
+    height: 90px;
+    margin-top: 10px;
+    padding: 12px;
+    background: #020617;
+    border: 1px solid #334155;
+    color: white;
+    border-radius: 8px;
+}
+
+button {
+    margin-top: 14px;
+    padding: 12px 28px;
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.result {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.left { width: 40%; text-align: center; }
+.right { width: 55%; }
+
+.status.low { color: #f87171; }
+.status.medium { color: #facc15; }
+.status.high { color: #4ade80; }
+
+.gauge { position: relative; width: 160px; margin: auto; }
+svg { transform: rotate(-90deg); }
+
+.bg {
+    fill: none;
+    stroke: #1e293b;
+    stroke-width: 14;
+}
+
+.fill {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+    stroke-dasharray: 440;
+    stroke-dashoffset: 440;
+    transition: stroke-dashoffset 1s ease, stroke 0.5s ease;
+}
+
+.score {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 26px;
+    font-weight: bold;
+}
+
+.advisory {
+    width: 100%;
+    margin-top: 20px;
+    background: #1e293b;
+    padding: 14px;
+    border-left: 5px solid #facc15;
+    border-radius: 8px;
+}
+
+.actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.back { background: #334155; }
+.share { background: linear-gradient(135deg, #22c55e, #15803d); }
+
+footer {
+    margin-top: 30px;
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+}
