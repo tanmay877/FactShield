@@ -1,113 +1,94 @@
-from flask import Flask, render_template, request, jsonify
-from transformers import pipeline
-import feedparser
-import os
-
-
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import re
+import datetime
 
 app = Flask(__name__)
+CORS(app)
 
-# ---------------- AI MODEL ----------------
-sentiment_analyzer = pipeline(
-    "text-classification",
-    model="distilbert-base-uncased-finetuned-sst-2-english"
-)
+# Trusted sources whitelist
+TRUSTED_SOURCES = [
+    "bbc", "who", "pib", "indianexpress", "livemint",
+    "aajtak", "ndtv", "reuters", "timesofindia"
+]
 
-# ---------------- OFFICIAL RSS FEEDS ----------------
-RSS_FEEDS = {
-    "BBC News": "https://feeds.bbci.co.uk/news/rss.xml",
-    "World Health Organization": "https://www.who.int/rss-feeds/news-english.xml",
-    "Press Information Bureau": "https://pib.gov.in/rssfeed.aspx",
-    "Mint (LiveMint)": "https://www.livemint.com/rss/news",
-    "The Indian Express": "https://indianexpress.com/feed/",
-    "Aaj Tak": "https://www.aajtak.in/rssfeeds/?id=home",
-    "Google News (India)": "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en"
-}
+# Alarmist / fake indicators
+ALARM_WORDS = [
+    "breaking", "urgent", "shocking", "deadly",
+    "share immediately", "forwarded", "whatsapp",
+    "secret", "hidden truth"
+]
 
-
-# ---------------- HELPER: FETCH HEADLINES ----------------
-def fetch_headlines():
-    headlines = []
-    for source, url in RSS_FEEDS.items():
-        feed = feedparser.parse(url)
-        for entry in feed.entries[:10]:
-            headlines.append({
-                "source": source,
-                "title": entry.title.lower()
-            })
-    return headlines
+# Opinion indicators
+OPINION_WORDS = [
+    "will happen", "might", "could", "prediction",
+    "expected", "possible"
+]
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return "FactShield Backend is running"
 
 @app.route("/check", methods=["POST"])
 def check():
-    text = request.json["content"].lower()
+    data = request.json
+    text = data.get("content", "").lower()
+
     score = 100
     findings = []
 
-    # ---------------- LANGUAGE RISK ----------------
-    if "whatsapp" in text or "forwarded" in text:
+    # ---------- SOURCE CHECK ----------
+    trusted = any(src in text for src in TRUSTED_SOURCES)
+    if trusted:
+        findings.append("Verified by trusted news sources")
+    else:
+        score -= 25
+        findings.append("No trusted source detected")
+
+    # ---------- ALARMIST LANGUAGE ----------
+    if any(word in text for word in ALARM_WORDS):
         score -= 30
-        findings.append("Unverified forwarded message")
+        findings.append("Alarmist / emotionally manipulative language")
 
-    if any(w in text for w in ["breaking", "urgent", "panic", "deadly", "shocking"]):
-        score -= 25
-        findings.append("Alarmist language detected")
-
-    # ---------------- PUBLIC FIGURE SANITY ----------------
-    if any(n in text for n in ["modi", "prime minister"]) and "died" in text:
-        score = min(score, 15)
-        findings.append("Unverified death claim about public figure")
-
-    # ---------------- REAL FACT CHECK (RSS) ----------------
-    headlines = fetch_headlines()
-    matched_sources = set()
-
-    for item in headlines:
-        # simple keyword overlap check
-        for word in text.split():
-            if len(word) > 4 and word in item["title"]:
-                matched_sources.add(item["source"])
-
-    if len(matched_sources) >= 2:
-        score += 30
-        findings.append(
-            f"Claim confirmed by multiple trusted sources: {', '.join(matched_sources)}"
-        )
-    elif len(matched_sources) == 1:
-        score += 10
-        findings.append(
-            f"Partial confirmation found from {list(matched_sources)[0]}"
-        )
-    else:
-        score -= 25
-        findings.append("No confirmation found in official news sources")
-
-    # ---------------- AI EMOTIONAL CHECK ----------------
-    ai = sentiment_analyzer(text[:512])[0]
-    if ai["label"] == "NEGATIVE" and ai["score"] > 0.85:
+    # ---------- OPINION / PREDICTION ----------
+    if any(word in text for word in OPINION_WORDS):
         score -= 15
-        findings.append("AI detected emotionally manipulative content")
+        findings.append("Opinion or prediction, not a verifiable fact")
 
-    # ---------------- NORMALIZE ----------------
-    score = max(0, min(score, 95))
+    # ---------- DATE CHECK ----------
+    year_match = re.search(r"\b(19|20)\d{2}\b", text)
+    if year_match:
+        year = int(year_match.group())
+        current_year = datetime.datetime.now().year
+        if year < current_year - 1:
+            score -= 15
+            findings.append("Information may be outdated")
 
-    if score >= 70:
-        status, color = "Likely True", "high"
-    elif score >= 40:
-        status, color = "Unverified", "medium"
+    # ---------- EXTREME CLAIM CHECK ----------
+    if "died" in text or "dead" in text:
+        score -= 30
+        findings.append("Extraordinary claim requires strong evidence")
+
+    # Clamp score
+    score = max(0, min(100, score))
+
+    # ---------- FINAL STATUS ----------
+    if score >= 75:
+        status = "High Credibility"
+        color = "green"
+    elif score >= 45:
+        status = "Medium Credibility"
+        color = "yellow"
     else:
-        status, color = "Likely False", "low"
+        status = "Low Credibility"
+        color = "red"
 
     return jsonify({
         "score": score,
         "status": status,
         "color": color,
-        "findings": findings
+        "findings": findings if findings else ["No major credibility issues detected"]
     })
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
